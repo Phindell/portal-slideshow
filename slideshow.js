@@ -55,26 +55,23 @@ const photoIds = [
     '2025-10-15_15-13-48_532_mv07fr',
     '2025-10-14_08-39-41_303_k2feoe',
     '2025-09-29_11-13-11_715_s02uud'
-    // Add more photo IDs here as you upload more photos
 ];
 
 // Slideshow settings
 let currentIndex = 0;
 let autoPlayInterval;
 let isPlaying = true;
-const SLIDE_DURATION = 7000; // 7 seconds per photo (adjust as needed)
+const SLIDE_DURATION = 10000; // 10 seconds per photo (increased from 7)
 
 // DOM elements
 const imageElement = document.getElementById('slideshow-image');
 const counterElement = document.getElementById('photo-counter');
-const playPauseBtn = document.getElementById('play-pause-btn');
-const prevBtn = document.getElementById('prev-btn');
-const nextBtn = document.getElementById('next-btn');
 
 // Build Cloudinary URL from public ID
 function getCloudinaryUrl(publicId) {
     // Using auto quality and format for best performance
-    return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/q_auto,f_auto/${publicId}.jpg`;
+    // Let Cloudinary determine the format automatically
+    return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/q_auto,f_auto/${publicId}`;
 }
 
 // Show a specific photo
@@ -106,7 +103,7 @@ function showPhoto(index) {
         imageElement.onload = () => {
             imageElement.classList.add('visible');
         };
-    }, 300);
+    }, 1000); // Increased from 300ms to 1000ms for smoother transition
 }
 
 // Navigation functions
@@ -123,13 +120,11 @@ function startAutoPlay() {
     if (photoIds.length <= 1) return; // Don't auto-play if only one photo
     
     isPlaying = true;
-    playPauseBtn.textContent = '⏸ Pause';
     autoPlayInterval = setInterval(nextPhoto, SLIDE_DURATION);
 }
 
 function stopAutoPlay() {
     isPlaying = false;
-    playPauseBtn.textContent = '▶ Play';
     clearInterval(autoPlayInterval);
 }
 
@@ -141,24 +136,7 @@ function toggleAutoPlay() {
     }
 }
 
-// Event listeners
-playPauseBtn.addEventListener('click', toggleAutoPlay);
-prevBtn.addEventListener('click', () => {
-    previousPhoto();
-    if (isPlaying) {
-        stopAutoPlay();
-        startAutoPlay(); // Restart timer
-    }
-});
-nextBtn.addEventListener('click', () => {
-    nextPhoto();
-    if (isPlaying) {
-        stopAutoPlay();
-        startAutoPlay(); // Restart timer
-    }
-});
-
-// Keyboard controls
+// Keyboard controls (still functional for testing on desktop)
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') {
         previousPhoto();
@@ -211,10 +189,70 @@ function init() {
         return;
     }
     
+    // Request fullscreen on first interaction
+    document.body.addEventListener('click', requestFullscreen, { once: true });
+    document.body.addEventListener('touchstart', requestFullscreen, { once: true });
+    
+    // Prevent screen from sleeping
+    preventSleep();
+    
     showPhoto(0);
     startAutoPlay();
     
     console.log(`Slideshow initialized with ${photoIds.length} photos`);
+}
+
+// Request fullscreen mode
+function requestFullscreen() {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(err => console.log('Fullscreen request failed:', err));
+    } else if (elem.webkitRequestFullscreen) { // Safari
+        elem.webkitRequestFullscreen();
+    } else if (elem.mozRequestFullScreen) { // Firefox
+        elem.mozRequestFullScreen();
+    } else if (elem.msRequestFullscreen) { // IE/Edge
+        elem.msRequestFullscreen();
+    }
+}
+
+// Prevent device from sleeping
+function preventSleep() {
+    // Try Wake Lock API first (modern browsers)
+    if ('wakeLock' in navigator) {
+        navigator.wakeLock.request('screen')
+            .then(wakeLock => {
+                console.log('Wake Lock activated');
+                // Re-request if visibility changes
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        navigator.wakeLock.request('screen');
+                    }
+                });
+            })
+            .catch(err => console.log('Wake Lock failed:', err));
+    }
+    
+    // Fallback: Create invisible video element (keeps screen awake)
+    const video = document.createElement('video');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('muted', '');
+    video.style.display = 'none';
+    document.body.appendChild(video);
+    
+    // Create a minimal video blob
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 1, 1);
+    
+    canvas.toBlob(blob => {
+        video.src = URL.createObjectURL(blob);
+        video.loop = true;
+        video.play().catch(err => console.log('Video play failed:', err));
+    }, 'video/webm');
 }
 
 // Start when page loads
