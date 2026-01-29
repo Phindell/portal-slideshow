@@ -61,7 +61,7 @@ const photoIds = [
 let currentIndex = 0;
 let autoPlayInterval;
 let isPlaying = true;
-const SLIDE_DURATION = 10000; // 10 seconds per photo (increased from 7)
+const SLIDE_DURATION = 30000; // 10 seconds per photo (increased from 7)
 
 // DOM elements
 const imageElement = document.getElementById('slideshow-image');
